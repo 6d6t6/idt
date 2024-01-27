@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iDesktop v1.1</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #desktop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: black;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+
+        .window {
+            position: absolute;
+            border: 2px solid #333;
+            border-radius: 2px;
+            background-color: #222;
+            overflow: hidden;
+        }
+
+        .window-header {
+            background-color: #333;
+            padding: 5px;
+            cursor: move;
+            user-select: none;
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+            z-index: 0;
+        }
+
+        .window-content {
+            height: calc(100% - 30px);
+            overflow: hidden;
+        }
+
+        .iframe-container {
+            width: 100%;
+            height: 100%;
+        }
+
+        .window-button {
+            cursor: pointer;
+            margin-right: 2px;
+        }
+
+        .url-input-container {
+            flex-grow: 1;
+            margin: 0 10px;
+            display: flex;
+            align-items: center;
+        }
+
+        .url-input {
+            width: 100%;
+            background: transparent;
+            color: white;
+            border: none;
+            padding: 2px;
+            border-radius: 2px;
+        }
+
+        .url-input:focus {
+            outline: 1px #808080 solid;
+            background: #ffffff30;
+        }
+
+        .resize-handle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background-color: transparent;
+            bottom: 0;
+            right: 0;
+            cursor: nwse-resize;
+        }
+
+        .material-icons {
+            font-size: 20px;
+            vertical-align: middle;
+        }
+
+        .button-left {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            cursor: pointer;
+            background: #333;
+            color: white;
+            border: none;
+            padding: 5px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .button-right {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            cursor: pointer;
+            background: #333;
+            color: white;
+            border: none;
+            padding: 5px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .fullscreen-button {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            cursor: pointer;
+            background: #131313;
+            color: #808080;
+            border: none;
+            padding: 5px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="desktop"></div>
+
+    <script>
+        let zIndexCounter = 1;
+
+        function createWindow(url) {
+            const windowId = `window_${Date.now()}`;
+            const windowElement = document.createElement('div');
+            windowElement.className = 'window';
+            windowElement.id = windowId;
+            windowElement.style.zIndex = zIndexCounter++;
+
+            const header = document.createElement('div');
+            header.className = 'window-header';
+            header.id = `${windowId}-header`;
+            header.innerHTML = `
+                <span class="window-button" onclick="closeWindow('${windowId}')"><i class="material-icons">close</i></span>
+                <div class="url-input-container" onclick="focusUrlInput(event, '${windowId}')">
+                    <input class="url-input" type="text" value="${url}" onkeydown="if (event.key === 'Enter') updateIframe('${windowId}')">
+                </div>
+            `;
+            header.addEventListener('mousedown', () => bringToFront(windowId));
+            windowElement.appendChild(header);
+
+            const content = document.createElement('div');
+            content.className = 'window-content';
+
+            const iframeContainer = document.createElement('div');
+            iframeContainer.className = 'iframe-container';
+            const iframe = document.createElement('iframe');
+            iframe.src = url;
+            iframeContainer.appendChild(iframe);
+
+            content.appendChild(iframeContainer);
+            windowElement.appendChild(content);
+
+            const resizeHandle = document.createElement('div');
+            resizeHandle.className = 'resize-handle';
+            resizeHandle.addEventListener('mousedown', (e) => initResize(e, windowElement));
+            windowElement.appendChild(resizeHandle);
+
+            dragElement(header, windowElement);
+
+            document.getElementById('desktop').appendChild(windowElement);
+        }
+
+        function closeWindow(windowId) {
+            const windowElement = document.getElementById(windowId);
+            windowElement.remove();
+        }
+
+        function bringToFront(windowId) {
+            const windowElement = document.getElementById(windowId);
+            windowElement.style.zIndex = zIndexCounter++;
+        }
+
+        function updateIframe(windowId) {
+            const input = document.getElementById(`${windowId}-header`).querySelector('.url-input');
+            const iframe = document.getElementById(windowId).querySelector('iframe');
+
+            const isLikelyURL = /^(https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}([/a-zA-Z0-9.-]*)*\/?$/.test(input.value);
+
+            if (isLikelyURL) {
+                iframe.src = `https://${input.value}`;
+            } else {
+                const searchQuery = encodeURIComponent(input.value);
+                iframe.src = `https://www.bing.com/search?q=${searchQuery}`;
+            }
+        }
+
+        function toggleFullscreen(windowId) {
+            const windowElement = document.getElementById(windowId);
+            if (!document.fullscreenElement) {
+                windowElement.requestFullscreen().catch(err => {
+                    console.error(`Error attempting to enable fullscreen: ${err.message}`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        function dragElement(elmnt, dragTarget) {
+            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            elmnt.onmousedown = dragMouseDown;
+
+            function dragMouseDown(e) {
+                e = e || window.event;
+                e.preventDefault();
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                document.onmouseup = closeDragElement;
+                document.onmousemove = elementDrag;
+            }
+
+            function elementDrag(e) {
+                e = e || window.event;
+                e.preventDefault();
+                pos1 = pos3 - e.clientX;
+                pos2 = pos4 - e.clientY;
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                dragTarget.style.top = (dragTarget.offsetTop - pos2) + 'px';
+                dragTarget.style.left = (dragTarget.offsetLeft - pos1) + 'px';
+            }
+
+            function closeDragElement() {
+                document.onmouseup = null;
+                document.onmousemove = null;
+            }
+        }
+
+        function initResize(e, windowElement) {
+            e.preventDefault();
+            document.addEventListener('mousemove', handleResize);
+            document.addEventListener('mouseup', stopResize);
+
+            function handleResize(e) {
+                const newWidth = e.clientX - windowElement.getBoundingClientRect().left;
+                const newHeight = e.clientY - windowElement.getBoundingClientRect().top;
+
+                windowElement.style.width = `${newWidth}px`;
+                windowElement.style.height = `${newHeight}px`;
+
+                const iframe = windowElement.querySelector('iframe');
+                iframe.style.width = '100%';
+                iframe.style.height = '100%';
+            }
+
+            function stopResize() {
+                document.removeEventListener('mousemove', handleResize);
+                document.removeEventListener('mouseup', stopResize);
+            }
+        }
+
+        function focusUrlInput(event, windowId) {
+            event.stopPropagation();
+            const input = document.getElementById(`${windowId}-header`).querySelector('.url-input');
+            input.focus();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const button = document.createElement('button');
+            button.className = 'button-left';
+            button.innerHTML = '<i class="material-icons">add</i>';
+            button.onclick = () => createWindow('https://www.bing.com');
+            document.getElementById('desktop').appendChild(button);
+
+            const fullscreenButton = document.createElement('button');
+            fullscreenButton.className = 'fullscreen-button';
+            fullscreenButton.innerHTML = '<i class="material-icons">fullscreen</i>';
+            fullscreenButton.onclick = () => toggleAppFullscreen();
+            document.getElementById('desktop').appendChild(fullscreenButton);
+
+            function toggleAppFullscreen() {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(err => {
+                        console.error(`Error attempting to enable fullscreen: ${err.message}`);
+                    });
+                } else {
+                    document.exitFullscreen();
+                }
+            }
+        });
+    </script>
+
+</body>
+
+</html>
