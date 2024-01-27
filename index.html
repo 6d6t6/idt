@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>iDesktop v1.1</title>
+    <title>iDesktop v1.2</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
     <style>
         body {
@@ -25,14 +25,14 @@
 
         .window {
             position: absolute;
-            border: 2px solid #333;
-            border-radius: 2px;
+            border: 2px solid #222;
+            border-radius: 6px;
             background-color: #222;
             overflow: hidden;
         }
 
         .window-header {
-            background-color: #333;
+            background-color: #222;
             padding: 5px;
             cursor: move;
             user-select: none;
@@ -52,9 +52,15 @@
             height: 100%;
         }
 
+        iframe {
+            border: none;
+            border-radius: 6px;
+        }
+
         .window-button {
             cursor: pointer;
-            margin-right: 2px;
+            margin: 2px;
+            margin-left: 4px;
         }
 
         .url-input-container {
@@ -146,6 +152,40 @@
     <script>
         let zIndexCounter = 1;
 
+        function convertToEmbedLink(url) {
+            const urlObject = new URL(url);
+
+            if (urlObject.hostname === 'www.youtube.com' || urlObject.hostname === 'youtube.com' || urlObject.hostname === 'youtu.be') {
+                if (urlObject.hostname === 'youtu.be') {
+                    const videoId = urlObject.pathname.substring(1);
+                    return `https://www.youtube.com/embed/${videoId}`;
+                } else if (urlObject.pathname.startsWith('/embed/')) {
+                    // Already an embed link
+                    return url;
+                } else if (urlObject.pathname.startsWith('/watch')) {
+                    const videoIdMatch = urlObject.search.match(/v=([^&]+)/);
+                    const videoId = videoIdMatch ? videoIdMatch[1] : '';
+                    const timestampMatch = urlObject.search.match(/t=([^&]+)/);
+                    const timestamp = timestampMatch ? `&${timestampMatch[0]}` : '';
+                    const playlistMatch = urlObject.search.match(/list=([^&]+)/);
+                    const playlist = playlistMatch ? `&list=${playlistMatch[1]}` : '';
+                    const indexMatch = urlObject.search.match(/index=([^&]+)/);
+                    const index = indexMatch ? `&index=${indexMatch[1]}` : '';
+                    return `https://www.youtube.com/embed/${videoId}?${playlist}${index}${timestamp}`;
+                } else if (urlObject.pathname.startsWith('/playlist')) {
+                    const playlistMatch = urlObject.search.match(/list=([^&]+)/);
+                    const playlist = playlistMatch ? `&list=${playlistMatch[1]}` : '';
+                    return `https://www.youtube.com/embed/?${playlist}`;
+                } else if (urlObject.pathname.startsWith('/shorts')) {
+                    // Handling YouTube shorts
+                    const videoId = urlObject.pathname.substring(urlObject.pathname.lastIndexOf('/') + 1);
+                    return `https://www.youtube.com/embed/${videoId}`;
+                }
+            }
+
+            return url;
+        }
+
         function createWindow(url) {
             const windowId = `window_${Date.now()}`;
             const windowElement = document.createElement('div');
@@ -171,7 +211,7 @@
             const iframeContainer = document.createElement('div');
             iframeContainer.className = 'iframe-container';
             const iframe = document.createElement('iframe');
-            iframe.src = url;
+            iframe.src = convertToEmbedLink(url);
             iframeContainer.appendChild(iframe);
 
             content.appendChild(iframeContainer);
@@ -201,24 +241,13 @@
             const input = document.getElementById(`${windowId}-header`).querySelector('.url-input');
             const iframe = document.getElementById(windowId).querySelector('iframe');
 
-            const isLikelyURL = /^(https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}([/a-zA-Z0-9.-]*)*\/?$/.test(input.value);
+            const isLikelyURL = /^(https?:\/\/|www)/.test(input.value);
 
             if (isLikelyURL) {
-                iframe.src = `https://${input.value}`;
+                iframe.src = convertToEmbedLink(input.value.startsWith('http') ? input.value : `https://${input.value}`);
             } else {
                 const searchQuery = encodeURIComponent(input.value);
                 iframe.src = `https://www.bing.com/search?q=${searchQuery}`;
-            }
-        }
-
-        function toggleFullscreen(windowId) {
-            const windowElement = document.getElementById(windowId);
-            if (!document.fullscreenElement) {
-                windowElement.requestFullscreen().catch(err => {
-                    console.error(`Error attempting to enable fullscreen: ${err.message}`);
-                });
-            } else {
-                document.exitFullscreen();
             }
         }
 
