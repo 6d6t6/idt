@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>iDesktop v1.2</title>
+    <title>iDesktop v1.3</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
     <style>
         body {
@@ -160,7 +160,6 @@
                     const videoId = urlObject.pathname.substring(1);
                     return `https://www.youtube.com/embed/${videoId}`;
                 } else if (urlObject.pathname.startsWith('/embed/')) {
-                    // Already an embed link
                     return url;
                 } else if (urlObject.pathname.startsWith('/watch')) {
                     const videoIdMatch = urlObject.search.match(/v=([^&]+)/);
@@ -177,7 +176,6 @@
                     const playlist = playlistMatch ? `&list=${playlistMatch[1]}` : '';
                     return `https://www.youtube.com/embed/?${playlist}`;
                 } else if (urlObject.pathname.startsWith('/shorts')) {
-                    // Handling YouTube shorts
                     const videoId = urlObject.pathname.substring(urlObject.pathname.lastIndexOf('/') + 1);
                     return `https://www.youtube.com/embed/${videoId}`;
                 }
@@ -192,6 +190,9 @@
             windowElement.className = 'window';
             windowElement.id = windowId;
             windowElement.style.zIndex = zIndexCounter++;
+
+            windowElement.style.width = '600px';
+            windowElement.style.height = '400px';
 
             const header = document.createElement('div');
             header.className = 'window-header';
@@ -212,6 +213,8 @@
             iframeContainer.className = 'iframe-container';
             const iframe = document.createElement('iframe');
             iframe.src = convertToEmbedLink(url);
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
             iframeContainer.appendChild(iframe);
 
             content.appendChild(iframeContainer);
